@@ -1,0 +1,109 @@
+configs:
+  nginx_conf:
+    content: |
+      events {}
+
+      http {
+        log_format repro '$$status "$$request"';
+        access_log /dev/stdout repro;
+
+        # Backend target for proxy_pass tests
+        server {
+          listen 127.0.0.1:9000;
+          return 200 "backend ok: $$request_uri\n";
+        }
+
+        server {
+          listen 80;
+          listen 81 http2;
+
+          location /static {
+            return 200 "static ok: $$request_uri\n";
+          }
+
+          location /proxy {
+            proxy_pass http://127.0.0.1:9000;
+          }
+        }
+      }
+
+x-nginx: &nginx-common
+  configs:
+    - source: nginx_conf
+      target: /etc/nginx/nginx.conf
+
+services:
+  nginx-1.18:
+    <<: *nginx-common
+    image: nginx:1.18
+    ports:
+      - '8118:80'
+      - '9118:81'
+
+  nginx-1.20:
+    <<: *nginx-common
+    image: nginx:1.20
+    ports:
+      - '8120:80'
+      - '9120:81'
+
+  nginx-1.24:
+    <<: *nginx-common
+    image: nginx:1.24
+    ports:
+      - '8124:80'
+      - '9124:81'
+
+  nginx-1.28:
+    <<: *nginx-common
+    image: nginx:1.28
+    ports:
+      - '8128:80'
+      - '9128:81'
+
+  nginx-latest:
+    <<: *nginx-common
+    image: nginx:latest
+    ports:
+      - '8199:80'
+      - '9199:81'
+
+  modsecurity-pl1:
+    image: owasp/modsecurity-crs:nginx
+    environment:
+      BLOCKING_PARANOIA: '1'
+      PARANOIA: '1'
+      BACKEND: http://backend:80
+    ports:
+      - '8181:8080'
+
+  modsecurity-pl2:
+    image: owasp/modsecurity-crs:nginx
+    environment:
+      BLOCKING_PARANOIA: '2'
+      PARANOIA: '2'
+      BACKEND: http://backend:80
+    ports:
+      - '8182:8080'
+
+  modsecurity-pl3:
+    image: owasp/modsecurity-crs:nginx
+    environment:
+      BLOCKING_PARANOIA: '3'
+      PARANOIA: '3'
+      BACKEND: http://backend:80
+    ports:
+      - '8183:8080'
+
+  modsecurity-pl4:
+    image: owasp/modsecurity-crs:nginx
+    environment:
+      BLOCKING_PARANOIA: '4'
+      PARANOIA: '4'
+      BACKEND: http://backend:80
+    ports:
+      - '8184:8080'
+
+  backend:
+    <<: *nginx-common
+    image: nginx:latest
