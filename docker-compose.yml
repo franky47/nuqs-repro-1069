@@ -27,6 +27,54 @@ configs:
         }
       }
 
+  haproxy_cfg:
+    content: |
+      defaults
+        mode http
+        timeout connect 5s
+        timeout client 30s
+        timeout server 30s
+
+      frontend fe
+        bind :80
+        default_backend be
+
+      backend be
+        server s1 backend:80
+
+  envoy_yaml:
+    content: |
+      static_resources:
+        listeners:
+          - address: { socket_address: { address: 0.0.0.0, port_value: 80 } }
+            filter_chains:
+              - filters:
+                  - name: envoy.filters.network.http_connection_manager
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                      stat_prefix: ingress
+                      route_config:
+                        virtual_hosts:
+                          - name: all
+                            domains: ["*"]
+                            routes:
+                              - match: { prefix: "/" }
+                                route: { cluster: backend }
+                      http_filters:
+                        - name: envoy.filters.http.router
+                          typed_config:
+                            "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+        clusters:
+          - name: backend
+            type: STRICT_DNS
+            load_assignment:
+              cluster_name: backend
+              endpoints:
+                - lb_endpoints:
+                    - endpoint:
+                        address:
+                          socket_address: { address: backend, port_value: 80 }
+
 x-nginx: &nginx-common
   configs:
     - source: nginx_conf
@@ -107,3 +155,49 @@ services:
   backend:
     <<: *nginx-common
     image: nginx:latest
+
+  tomcat-9:
+    image: tomcat:9
+    ports:
+      - '8209:8080'
+
+  tomcat-10:
+    image: tomcat:10.1
+    ports:
+      - '8210:8080'
+
+  jetty:
+    image: jetty:12.0-jre17
+    ports:
+      - '8211:8080'
+
+  httpd:
+    image: httpd:2.4
+    ports:
+      - '8212:80'
+
+  haproxy:
+    image: haproxy:3.0
+    configs:
+      - source: haproxy_cfg
+        target: /usr/local/etc/haproxy/haproxy.cfg
+    ports:
+      - '8213:80'
+
+  caddy:
+    image: caddy:2
+    ports:
+      - '8214:80'
+
+  envoy:
+    image: envoyproxy/envoy:v1.32-latest
+    configs:
+      - source: envoy_yaml
+        target: /etc/envoy/envoy.yaml
+    ports:
+      - '8215:80'
+
+  openlitespeed:
+    image: litespeedtech/openlitespeed
+    ports:
+      - '8216:8088'
