@@ -43,6 +43,8 @@ declare -a TARGETS=(
   'caddy-2|http://localhost:8214||--http1.1'
   'envoy-1.32|http://localhost:8215|static,proxy|--http1.1'
   'openlitespeed|http://localhost:8216||--http1.1'
+  'nginx-7g|http://localhost:8217||--http1.1'
+  'nginx-to-tomcat|http://localhost:8218||--http1.1'
 )
 
 printf '%-22s %-10s %-28s %s\n' TARGET PATH PAYLOAD STATUS

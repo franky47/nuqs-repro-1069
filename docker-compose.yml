@@ -27,6 +27,44 @@ configs:
         }
       }
 
+  nginx_7g_conf:
+    # Query-string rule from the 7G Firewall nginx port, shipped as the
+    # built-in WAF of GridPane/xCloud managed WordPress hosting.
+    # https://perishablepress.com/7g-firewall/
+    content: |
+      events {}
+
+      http {
+        map $$query_string $$bad_querystring {
+          default 0;
+          "~*(~|`|<|>|%3c|%3e|\^|\||\\\\|0x00|%00|%0d%0a)" 1;
+        }
+
+        server {
+          listen 80;
+
+          location / {
+            if ($$bad_querystring) {
+              return 403;
+            }
+            return 200 "7g ok: $$request_uri\n";
+          }
+        }
+      }
+
+  nginx_tomcat_conf:
+    content: |
+      events {}
+
+      http {
+        server {
+          listen 80;
+          location / {
+            proxy_pass http://tomcat-10:8080;
+          }
+        }
+      }
+
   haproxy_cfg:
     content: |
       defaults
@@ -201,3 +239,21 @@ services:
     image: litespeedtech/openlitespeed
     ports:
       - '8216:8088'
+
+  nginx-7g:
+    image: nginx:latest
+    configs:
+      - source: nginx_7g_conf
+        target: /etc/nginx/nginx.conf
+    ports:
+      - '8217:80'
+
+  nginx-tomcat:
+    image: nginx:latest
+    configs:
+      - source: nginx_tomcat_conf
+        target: /etc/nginx/nginx.conf
+    depends_on:
+      - tomcat-10
+    ports:
+      - '8218:80'
